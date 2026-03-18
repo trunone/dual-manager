@@ -1,5 +1,8 @@
 package com.jason.dualmanager.ui
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -9,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
@@ -17,6 +21,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import coil.compose.rememberAsyncImagePainter
 import com.jason.dualmanager.data.AppInfo
+import com.jason.dualmanager.shizuku.ShizukuHelper
+import com.jason.dualmanager.shizuku.ShizukuStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +41,7 @@ fun MainScreen(viewModel: MainViewModel) {
     val tabs = listOf("Main Apps", "Dual Messenger", "History")
 
     var showMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -64,20 +71,49 @@ fun MainScreen(viewModel: MainViewModel) {
         }
     ) { paddingValues ->
         Column(modifier = Modifier.padding(paddingValues).fillMaxSize()) {
-            val isShizukuAvailable by viewModel.isShizukuAvailable.collectAsState()
-            val isShizukuPermissionGranted by viewModel.isShizukuPermissionGranted.collectAsState()
+            val shizukuStatus by viewModel.shizukuStatus.collectAsState()
 
-            if (!isShizukuAvailable || !isShizukuPermissionGranted) {
+            if (shizukuStatus != ShizukuStatus.Ready) {
                 Surface(
                     color = MaterialTheme.colorScheme.errorContainer,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = if (!isShizukuAvailable) "Shizuku is not running. Please start Shizuku." else "Shizuku permission not granted.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        modifier = Modifier.padding(16.dp)
-                    )
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        val (message, actionText, action) = when (shizukuStatus) {
+                            ShizukuStatus.NotInstalled -> Triple(
+                                "Shizuku is not installed. Please install Shizuku app.",
+                                "Install Shizuku",
+                                { openPlayStore(context, "moe.shizuku.privileged.api") }
+                            )
+                            ShizukuStatus.NotRunning -> Triple(
+                                "Shizuku service is not running. Please start Shizuku.",
+                                "Open Shizuku",
+                                { openApp(context, "moe.shizuku.privileged.api") }
+                            )
+                            ShizukuStatus.PermissionDenied -> Triple(
+                                "Shizuku permission not granted. Please allow Dual Manager in Shizuku.",
+                                "Request Permission",
+                                { ShizukuHelper.requestShizukuPermission(100) }
+                            )
+                            else -> Triple("Shizuku is not ready.", null, null)
+                        }
+
+                        Text(
+                            text = message,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+
+                        if (actionText != null && action != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Button(
+                                onClick = action,
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                            ) {
+                                Text(actionText)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -162,6 +198,26 @@ fun MainScreen(viewModel: MainViewModel) {
                 )
             }
         }
+    }
+}
+
+private fun openPlayStore(context: Context, packageName: String) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=$packageName"))
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
+    }
+}
+
+private fun openApp(context: Context, packageName: String) {
+    val intent = context.packageManager.getLaunchIntentForPackage(packageName)
+    if (intent != null) {
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        context.startActivity(intent)
     }
 }
 

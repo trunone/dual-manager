@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.jason.dualmanager.data.AppInfo
 import com.jason.dualmanager.data.AppRepository
 import com.jason.dualmanager.data.SpecialPermission
+import com.jason.dualmanager.shizuku.ShizukuException
+import com.jason.dualmanager.shizuku.ShizukuStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -49,15 +51,11 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     private val _isPermissionLoading = MutableStateFlow(false)
     val isPermissionLoading: StateFlow<Boolean> = _isPermissionLoading
 
-    private val _isShizukuAvailable = MutableStateFlow(true)
-    val isShizukuAvailable: StateFlow<Boolean> = _isShizukuAvailable
+    private val _shizukuStatus = MutableStateFlow<ShizukuStatus>(ShizukuStatus.Ready)
+    val shizukuStatus: StateFlow<ShizukuStatus> = _shizukuStatus
 
-    private val _isShizukuPermissionGranted = MutableStateFlow(true)
-    val isShizukuPermissionGranted: StateFlow<Boolean> = _isShizukuPermissionGranted
-
-    fun updateShizukuStatus(available: Boolean, permissionGranted: Boolean) {
-        _isShizukuAvailable.value = available
-        _isShizukuPermissionGranted.value = permissionGranted
+    fun updateShizukuStatus(status: ShizukuStatus) {
+        _shizukuStatus.value = status
     }
 
     fun loadSpecialPermissions(app: AppInfo) {
@@ -66,6 +64,10 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
             _isPermissionLoading.value = true
             try {
                 _specialPermissions.value = repository.getSpecialPermissions(app.packageName)
+            } catch (e: ShizukuException) {
+                _shizukuStatus.value = e.status
+                _errorMessage.value = e.message
+                _selectedAppForPermissions.value = null
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to load permissions: ${e.message}"
             } finally {
@@ -76,12 +78,19 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun toggleSpecialPermission(packageName: String, permission: SpecialPermission, allow: Boolean) {
         viewModelScope.launch {
-            val success = repository.setSpecialPermission(packageName, permission.op, allow)
-            if (success) {
-                // Refresh permissions
-                _selectedAppForPermissions.value?.let { loadSpecialPermissions(it) }
-            } else {
-                _errorMessage.value = "Failed to update permission ${permission.label}"
+            try {
+                val success = repository.setSpecialPermission(packageName, permission.op, allow)
+                if (success) {
+                    // Refresh permissions
+                    _selectedAppForPermissions.value?.let { loadSpecialPermissions(it) }
+                } else {
+                    _errorMessage.value = "Failed to update permission ${permission.label}"
+                }
+            } catch (e: ShizukuException) {
+                _shizukuStatus.value = e.status
+                _errorMessage.value = e.message
+            } catch (e: Exception) {
+                _errorMessage.value = "Error: ${e.message}"
             }
         }
     }
@@ -103,6 +112,10 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
                 _mainApps.value = repository.getMainApps()
                 _dualApps.value = repository.getDualMessengerApps()
                 _historyApps.value = repository.getClonedHistoryApps()
+                _shizukuStatus.value = ShizukuStatus.Ready
+            } catch (e: ShizukuException) {
+                _shizukuStatus.value = e.status
+                _errorMessage.value = e.message
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to load apps: ${e.message}"
             } finally {
@@ -114,11 +127,20 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     fun cloneToDualMessenger(packageName: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            val success = repository.installToDualMessenger(packageName)
-            if (success) {
-                loadApps()
-            } else {
-                _errorMessage.value = "Failed to clone $packageName"
+            try {
+                val success = repository.installToDualMessenger(packageName)
+                if (success) {
+                    loadApps()
+                } else {
+                    _errorMessage.value = "Failed to clone $packageName"
+                    _isLoading.value = false
+                }
+            } catch (e: ShizukuException) {
+                _shizukuStatus.value = e.status
+                _errorMessage.value = e.message
+                _isLoading.value = false
+            } catch (e: Exception) {
+                _errorMessage.value = "Error: ${e.message}"
                 _isLoading.value = false
             }
         }
@@ -127,11 +149,20 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     fun uninstallFromDualMessenger(packageName: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            val success = repository.uninstallFromDualMessenger(packageName)
-            if (success) {
-                loadApps()
-            } else {
-                _errorMessage.value = "Failed to uninstall $packageName"
+            try {
+                val success = repository.uninstallFromDualMessenger(packageName)
+                if (success) {
+                    loadApps()
+                } else {
+                    _errorMessage.value = "Failed to uninstall $packageName"
+                    _isLoading.value = false
+                }
+            } catch (e: ShizukuException) {
+                _shizukuStatus.value = e.status
+                _errorMessage.value = e.message
+                _isLoading.value = false
+            } catch (e: Exception) {
+                _errorMessage.value = "Error: ${e.message}"
                 _isLoading.value = false
             }
         }
@@ -140,11 +171,20 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     fun recoverClonedApps() {
         viewModelScope.launch {
             _isLoading.value = true
-            val failedApps = repository.recoverClonedApps()
-            if (failedApps.isNotEmpty()) {
-                _errorMessage.value = "Failed to recover: ${failedApps.joinToString(", ")}"
+            try {
+                val failedApps = repository.recoverClonedApps()
+                if (failedApps.isNotEmpty()) {
+                    _errorMessage.value = "Failed to recover: ${failedApps.joinToString(", ")}"
+                }
+                loadApps()
+            } catch (e: ShizukuException) {
+                _shizukuStatus.value = e.status
+                _errorMessage.value = e.message
+                _isLoading.value = false
+            } catch (e: Exception) {
+                _errorMessage.value = "Error: ${e.message}"
+                _isLoading.value = false
             }
-            loadApps()
         }
     }
 
