@@ -90,10 +90,10 @@ class AppRepository(private val context: Context) {
         }
 
         // Add runtime permissions
-        val requestedPermissionsSection = dump.substringAfter("requested permissions:", "").substringBefore("install permissions:")
-        val runtimePermissionsSection = dump.substringAfter("User 95:", "").substringBefore("User")
+        val requestedPermissionsSection = dump.substringAfter("requested permissions:", "").substringBefore("\n\n")
+        val runtimePermissionsSection = dump.substringAfter("User 95:", "").substringBefore("\n\n")
 
-        requestedPermissionsSection.lines().map { it.trim() }.filter { it.startsWith("android.permission.") }.forEach { perm ->
+        requestedPermissionsSection.lines().map { it.trim().substringBefore(":") }.filter { it.startsWith("android.permission.") }.forEach { perm ->
             val isGranted = runtimePermissionsSection.contains("$perm: granted=true")
             val label = perm.substringAfterLast(".").replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
 
