@@ -71,7 +71,7 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun toggleSpecialPermission(packageName: String, permission: SpecialPermission, allow: Boolean) {
         viewModelScope.launch {
-            val success = repository.setSpecialPermission(packageName, permission.op, allow)
+            val success = repository.setSpecialPermission(packageName, permission.op, allow, permission.isAppOp)
             if (success) {
                 // Refresh permissions
                 _selectedAppForPermissions.value?.let { loadSpecialPermissions(it) }

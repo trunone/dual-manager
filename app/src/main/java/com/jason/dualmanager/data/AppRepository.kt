@@ -78,20 +78,43 @@ class AppRepository(private val context: Context) {
         // Check which permissions are requested in manifest
         val dump = ShizukuHelper.executeShellCommand("pm dump $packageName")
         
-        specialOps.mapNotNull { (op, label, perm) ->
+        val result = mutableListOf<SpecialPermission>()
+
+        // Add special AppOps permissions
+        specialOps.forEach { (op, label, perm) ->
             if (dump.contains(perm)) {
                 val status = ShizukuHelper.executeShellCommand("appops get --user 95 $packageName $op")
                 val isAllowed = status.contains("allow", ignoreCase = true)
-                SpecialPermission(op, label, isAllowed, perm)
-            } else {
-                null
+                result.add(SpecialPermission(op, label, isAllowed, perm, isAppOp = true))
             }
         }
+
+        // Add runtime permissions
+        val requestedPermissionsSection = dump.substringAfter("requested permissions:", "").substringBefore("install permissions:")
+        val runtimePermissionsSection = dump.substringAfter("User 95:", "").substringBefore("User")
+
+        requestedPermissionsSection.lines().map { it.trim() }.filter { it.startsWith("android.permission.") }.forEach { perm ->
+            val isGranted = runtimePermissionsSection.contains("$perm: granted=true")
+            val label = perm.substringAfterLast(".").replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
+
+            // Only add if not already added as an AppOp (some overlap)
+            if (result.none { it.manifestPermission == perm }) {
+                result.add(SpecialPermission(perm, label, isGranted, perm, isAppOp = false))
+            }
+        }
+
+        result.sortedBy { it.label }
     }
 
-    suspend fun setSpecialPermission(packageName: String, op: String, allow: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val mode = if (allow) "allow" else "ignore"
-        val output = ShizukuHelper.executeShellCommand("appops set --user 95 $packageName $op $mode")
+    suspend fun setSpecialPermission(packageName: String, op: String, allow: Boolean, isAppOp: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val command = if (isAppOp) {
+            val mode = if (allow) "allow" else "ignore"
+            "appops set --user 95 $packageName $op $mode"
+        } else {
+            val action = if (allow) "grant" else "revoke"
+            "pm $action --user 95 $packageName $op"
+        }
+        val output = ShizukuHelper.executeShellCommand(command)
         !output.startsWith("Error")
     }
 

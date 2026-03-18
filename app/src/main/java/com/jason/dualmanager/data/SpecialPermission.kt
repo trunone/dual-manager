@@ -4,5 +4,6 @@ data class SpecialPermission(
     val op: String,
     val label: String,
     val isAllowed: Boolean,
-    val manifestPermission: String
+    val manifestPermission: String,
+    val isAppOp: Boolean = true
 )

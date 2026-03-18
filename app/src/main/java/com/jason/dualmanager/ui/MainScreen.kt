@@ -149,30 +149,37 @@ fun SpecialPermissionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Special Permissions: ${app.name}") },
+        title = { Text("Permissions: ${app.name}") },
         text = {
-            if (isLoading) {
-                Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
-            } else if (permissions.isEmpty()) {
-                Text("No special permissions requested by this app.")
-            } else {
-                Column {
-                    permissions.forEach { permission ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(permission.label, style = MaterialTheme.typography.bodyLarge)
-                                Text(permission.op, style = MaterialTheme.typography.bodySmall)
+            Box(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                if (isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else if (permissions.isEmpty()) {
+                    Text("No permissions requested by this app.")
+                } else {
+                    LazyColumn {
+                        items(permissions) { permission ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(permission.label, style = MaterialTheme.typography.bodyLarge)
+                                    Text(
+                                        text = if (permission.isAppOp) "Special: ${permission.op}" else "Runtime: ${permission.op}",
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                Switch(
+                                    checked = permission.isAllowed,
+                                    onCheckedChange = { onToggle(permission, it) }
+                                )
                             }
-                            Switch(
-                                checked = permission.isAllowed,
-                                onCheckedChange = { onToggle(permission, it) }
-                            )
                         }
                     }
                 }
