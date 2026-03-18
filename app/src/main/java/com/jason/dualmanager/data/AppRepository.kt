@@ -34,8 +34,12 @@ class AppRepository(private val context: Context) {
         val history = getClonedHistory()
         val failedApps = mutableListOf<String>()
         history.forEach { packageName ->
-            val success = installToDualMessenger(packageName)
-            if (!success) {
+            try {
+                val success = installToDualMessenger(packageName)
+                if (!success) {
+                    failedApps.add(packageName)
+                }
+            } catch (e: Exception) {
                 failedApps.add(packageName)
             }
         }
@@ -66,7 +70,7 @@ class AppRepository(private val context: Context) {
     }
 
     suspend fun getMainApps(): List<AppInfo> = withContext(Dispatchers.IO) {
-        val output = ShizukuHelper.executeShellCommand("pm list packages --user 0")
+        val output = ShizukuHelper.executeShellCommand(context, "pm list packages --user 0")
         if (output.startsWith("Error")) {
             return@withContext emptyList()
         }
@@ -92,7 +96,7 @@ class AppRepository(private val context: Context) {
     }
 
     suspend fun getDualMessengerApps(): List<AppInfo> = withContext(Dispatchers.IO) {
-        val output = ShizukuHelper.executeShellCommand("pm list packages --user 95")
+        val output = ShizukuHelper.executeShellCommand(context, "pm list packages --user 95")
         if (output.startsWith("Error")) {
             return@withContext emptyList()
         }
@@ -132,11 +136,11 @@ class AppRepository(private val context: Context) {
         )
 
         // Check which permissions are requested in manifest
-        val dump = ShizukuHelper.executeShellCommand("pm dump $packageName")
+        val dump = ShizukuHelper.executeShellCommand(context, "pm dump $packageName")
         
         specialOps.mapNotNull { (op, label, perm) ->
             if (dump.contains(perm)) {
-                val status = ShizukuHelper.executeShellCommand("appops get --user 95 $packageName $op")
+                val status = ShizukuHelper.executeShellCommand(context, "appops get --user 95 $packageName $op")
                 val isAllowed = status.contains("allow", ignoreCase = true)
                 SpecialPermission(op, label, isAllowed, perm)
             } else {
@@ -147,12 +151,12 @@ class AppRepository(private val context: Context) {
 
     suspend fun setSpecialPermission(packageName: String, op: String, allow: Boolean): Boolean = withContext(Dispatchers.IO) {
         val mode = if (allow) "allow" else "ignore"
-        val output = ShizukuHelper.executeShellCommand("appops set --user 95 $packageName $op $mode")
+        val output = ShizukuHelper.executeShellCommand(context, "appops set --user 95 $packageName $op $mode")
         !output.startsWith("Error")
     }
 
     suspend fun installToDualMessenger(packageName: String): Boolean = withContext(Dispatchers.IO) {
-        val output = ShizukuHelper.executeShellCommand("pm install-existing --user 95 $packageName")
+        val output = ShizukuHelper.executeShellCommand(context, "pm install-existing --user 95 $packageName")
         val success = output.contains("installed", ignoreCase = true) || output.contains("Success", ignoreCase = true)
         if (success) {
             addToHistory(packageName)
@@ -161,7 +165,7 @@ class AppRepository(private val context: Context) {
     }
 
     suspend fun uninstallFromDualMessenger(packageName: String): Boolean = withContext(Dispatchers.IO) {
-        val output = ShizukuHelper.executeShellCommand("pm uninstall --user 95 $packageName")
+        val output = ShizukuHelper.executeShellCommand(context, "pm uninstall --user 95 $packageName")
         val success = output.contains("Success", ignoreCase = true)
         if (success) {
             removeFromHistory(packageName)

@@ -12,6 +12,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.jason.dualmanager.data.AppRepository
 import com.jason.dualmanager.shizuku.ShizukuHelper
+import com.jason.dualmanager.shizuku.ShizukuStatus
 import com.jason.dualmanager.ui.MainScreen
 import com.jason.dualmanager.ui.MainViewModel
 import rikka.shizuku.Shizuku
@@ -25,21 +26,23 @@ class MainActivity : ComponentActivity() {
     private val REQUEST_CODE_SHIZUKU = 100
 
     private val shizukuListener = Shizuku.OnRequestPermissionResultListener { requestCode, grantResult ->
-        if (requestCode == REQUEST_CODE_SHIZUKU && grantResult == PackageManager.PERMISSION_GRANTED) {
-            viewModel.updateShizukuStatus(available = true, permissionGranted = true)
-            viewModel.loadApps()
-        } else {
-            viewModel.updateShizukuStatus(available = true, permissionGranted = false)
-            Toast.makeText(this, "Shizuku permission denied", Toast.LENGTH_SHORT).show()
+        if (requestCode == REQUEST_CODE_SHIZUKU) {
+            val status = ShizukuHelper.getShizukuStatus(this)
+            viewModel.updateShizukuStatus(status)
+            if (status == ShizukuStatus.Ready) {
+                viewModel.loadApps()
+            } else if (grantResult != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "Shizuku permission denied", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
     private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
-        val granted = ShizukuHelper.isShizukuPermissionGranted()
-        viewModel.updateShizukuStatus(available = true, permissionGranted = granted)
-        if (granted) {
+        val status = ShizukuHelper.getShizukuStatus(this)
+        viewModel.updateShizukuStatus(status)
+        if (status == ShizukuStatus.Ready) {
             viewModel.loadApps()
-        } else {
+        } else if (status == ShizukuStatus.PermissionDenied) {
             ShizukuHelper.requestShizukuPermission(REQUEST_CODE_SHIZUKU)
         }
     }
@@ -50,19 +53,14 @@ class MainActivity : ComponentActivity() {
         Shizuku.addBinderReceivedListener(binderReceivedListener)
         Shizuku.addRequestPermissionResultListener(shizukuListener)
 
-        val available = ShizukuHelper.isShizukuAvailable()
-        val granted = ShizukuHelper.isShizukuPermissionGranted()
-        viewModel.updateShizukuStatus(available, granted)
+        val status = ShizukuHelper.getShizukuStatus(this)
+        viewModel.updateShizukuStatus(status)
 
-        if (available) {
-            if (!granted) {
-                ShizukuHelper.requestShizukuPermission(REQUEST_CODE_SHIZUKU)
-            } else {
-                viewModel.loadApps()
-            }
+        if (status == ShizukuStatus.Ready) {
+            viewModel.loadApps()
+        } else if (status == ShizukuStatus.PermissionDenied) {
+            ShizukuHelper.requestShizukuPermission(REQUEST_CODE_SHIZUKU)
         }
-        // If not available, we wait for the listener to trigger. 
-        // We removed the Toast here to avoid false alarms during initialization.
 
         setContent {
             MaterialTheme {

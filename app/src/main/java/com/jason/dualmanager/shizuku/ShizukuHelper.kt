@@ -1,12 +1,30 @@
 package com.jason.dualmanager.shizuku
 
+import android.content.Context
 import android.content.pm.PackageManager
 import rikka.shizuku.Shizuku
-import rikka.shizuku.ShizukuProvider
 import java.io.BufferedReader
 import java.io.InputStreamReader
 
+sealed class ShizukuStatus {
+    object NotInstalled : ShizukuStatus()
+    object NotRunning : ShizukuStatus()
+    object PermissionDenied : ShizukuStatus()
+    object Ready : ShizukuStatus()
+}
+
+class ShizukuException(val status: ShizukuStatus, message: String) : Exception(message)
+
 object ShizukuHelper {
+
+    fun isShizukuInstalled(context: Context): Boolean {
+        return try {
+            context.packageManager.getPackageInfo("moe.shizuku.privileged.api", 0)
+            true
+        } catch (e: PackageManager.NameNotFoundException) {
+            false
+        }
+    }
 
     fun isShizukuAvailable(): Boolean {
         return Shizuku.pingBinder()
@@ -20,16 +38,33 @@ object ShizukuHelper {
         }
     }
 
+    fun getShizukuStatus(context: Context): ShizukuStatus {
+        return when {
+            !isShizukuInstalled(context) -> ShizukuStatus.NotInstalled
+            !isShizukuAvailable() -> ShizukuStatus.NotRunning
+            !isShizukuPermissionGranted() -> ShizukuStatus.PermissionDenied
+            else -> ShizukuStatus.Ready
+        }
+    }
+
     fun requestShizukuPermission(requestCode: Int) {
         if (isShizukuAvailable() && !isShizukuPermissionGranted()) {
             Shizuku.requestPermission(requestCode)
         }
     }
 
-    fun executeShellCommand(command: String): String {
-        if (!isShizukuPermissionGranted()) {
-            return "Error: Shizuku permission not granted."
+    fun executeShellCommand(context: Context, command: String): String {
+        val status = getShizukuStatus(context)
+        if (status != ShizukuStatus.Ready) {
+            val message = when (status) {
+                ShizukuStatus.NotInstalled -> "Shizuku is not installed. Please install Shizuku app."
+                ShizukuStatus.NotRunning -> "Shizuku service is not running. Please start Shizuku."
+                ShizukuStatus.PermissionDenied -> "Shizuku permission not granted. Please allow Dual Manager in Shizuku."
+                else -> "Shizuku is not ready."
+            }
+            throw ShizukuException(status, message)
         }
+
         return try {
             val method = rikka.shizuku.Shizuku::class.java.getDeclaredMethod(
                 "newProcess",
@@ -50,7 +85,7 @@ object ShizukuHelper {
             output.toString().trim()
         } catch (e: Exception) {
             e.printStackTrace()
-            "Error: ${e.message}"
+            throw ShizukuException(ShizukuStatus.Ready, "Error executing command: ${e.message}")
         }
     }
 }
