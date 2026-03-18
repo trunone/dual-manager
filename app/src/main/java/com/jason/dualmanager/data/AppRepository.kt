@@ -66,6 +66,33 @@ class AppRepository(private val context: Context) {
         }.sortedBy { it.name.lowercase() }
     }
 
+    private fun extractSection(dump: String, startMarker: String): String {
+        val startIndex = dump.indexOf(startMarker)
+        if (startIndex == -1) return ""
+
+        val contentStart = startIndex + startMarker.length
+        val lines = dump.substring(contentStart).lines()
+        val result = StringBuilder()
+
+        // Find the base indentation level of the first non-empty line
+        var baseIndent = -1
+
+        for (line in lines) {
+            if (line.isBlank()) continue
+
+            val currentIndent = line.takeWhile { it.isWhitespace() }.length
+            if (baseIndent == -1) {
+                baseIndent = currentIndent
+            } else if (currentIndent < baseIndent && line.trim().isNotEmpty()) {
+                // We've reached a line with less indentation than the section's first line,
+                // which means the section has ended.
+                break
+            }
+            result.append(line).append("\n")
+        }
+        return result.toString()
+    }
+
     suspend fun getSpecialPermissions(packageName: String): List<SpecialPermission> = withContext(Dispatchers.IO) {
         val specialOps = listOf(
             Triple("MANAGE_EXTERNAL_STORAGE", "All Files Access", "android.permission.MANAGE_EXTERNAL_STORAGE"),
@@ -75,9 +102,7 @@ class AppRepository(private val context: Context) {
             Triple("GET_USAGE_STATS", "Usage Access", "android.permission.PACKAGE_USAGE_STATS")
         )
 
-        // Check which permissions are requested in manifest
         val dump = ShizukuHelper.executeShellCommand("pm dump $packageName")
-        
         val result = mutableListOf<SpecialPermission>()
 
         // Add special AppOps permissions
@@ -90,17 +115,19 @@ class AppRepository(private val context: Context) {
         }
 
         // Add runtime permissions
-        val requestedPermissionsSection = dump.substringAfter("requested permissions:", "").substringBefore("\n\n")
-        val installPermissionsSection = dump.substringAfter("install permissions:", "").substringBefore("\n\n")
-        val user95Section = dump.substringAfter("User 95:", "").substringBefore("\n\n")
+        val requestedPermissions = extractSection(dump, "requested permissions:").lines()
+            .map { it.trim().substringBefore(":") }
+            .filter { it.startsWith("android.permission.") }
 
-        requestedPermissionsSection.lines().map { it.trim().substringBefore(":") }.filter { it.startsWith("android.permission.") }.forEach { perm ->
-            val isGranted = installPermissionsSection.contains("$perm: granted=true") ||
-                           user95Section.contains("$perm: granted=true")
+        val installPermissionsSection = extractSection(dump, "install permissions:")
+        val user95Section = extractSection(dump, "User 95:")
+
+        requestedPermissions.forEach { perm ->
+            val isGranted = installPermissionsSection.lines().any { it.trim().startsWith("$perm: granted=true") } ||
+                           user95Section.lines().any { it.trim().startsWith("$perm: granted=true") }
 
             val label = perm.substringAfterLast(".").replace("_", " ").lowercase().replaceFirstChar { it.uppercase() }
 
-            // Only add if not already added as an AppOp (some overlap)
             if (result.none { it.manifestPermission == perm }) {
                 result.add(SpecialPermission(perm, label, isGranted, perm, isAppOp = false))
             }
