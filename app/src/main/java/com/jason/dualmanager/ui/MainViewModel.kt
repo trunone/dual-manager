@@ -131,6 +131,17 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
+    fun recoverClonedApps() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            val failedApps = repository.recoverClonedApps()
+            if (failedApps.isNotEmpty()) {
+                _errorMessage.value = "Failed to recover: ${failedApps.joinToString(", ")}"
+            }
+            loadApps()
+        }
+    }
+
     fun clearError() {
         _errorMessage.value = null
     }

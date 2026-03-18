@@ -9,6 +9,39 @@ import kotlinx.coroutines.withContext
 
 class AppRepository(private val context: Context) {
 
+    private val prefs = context.getSharedPreferences("dual_manager_prefs", Context.MODE_PRIVATE)
+    private val HISTORY_KEY = "cloned_apps_history"
+
+    private fun getClonedHistory(): Set<String> {
+        return prefs.getStringSet(HISTORY_KEY, emptySet()) ?: emptySet()
+    }
+
+    private fun addToHistory(packageName: String) {
+        val history = getClonedHistory().toMutableSet()
+        if (history.add(packageName)) {
+            prefs.edit().putStringSet(HISTORY_KEY, history).apply()
+        }
+    }
+
+    private fun removeFromHistory(packageName: String) {
+        val history = getClonedHistory().toMutableSet()
+        if (history.remove(packageName)) {
+            prefs.edit().putStringSet(HISTORY_KEY, history).apply()
+        }
+    }
+
+    suspend fun recoverClonedApps(): List<String> = withContext(Dispatchers.IO) {
+        val history = getClonedHistory()
+        val failedApps = mutableListOf<String>()
+        history.forEach { packageName ->
+            val success = installToDualMessenger(packageName)
+            if (!success) {
+                failedApps.add(packageName)
+            }
+        }
+        failedApps
+    }
+
     suspend fun getMainApps(): List<AppInfo> = withContext(Dispatchers.IO) {
         val output = ShizukuHelper.executeShellCommand("pm list packages --user 0")
         if (output.startsWith("Error")) {
@@ -97,11 +130,19 @@ class AppRepository(private val context: Context) {
 
     suspend fun installToDualMessenger(packageName: String): Boolean = withContext(Dispatchers.IO) {
         val output = ShizukuHelper.executeShellCommand("pm install-existing --user 95 $packageName")
-        output.contains("installed", ignoreCase = true) || output.contains("Success", ignoreCase = true)
+        val success = output.contains("installed", ignoreCase = true) || output.contains("Success", ignoreCase = true)
+        if (success) {
+            addToHistory(packageName)
+        }
+        success
     }
 
     suspend fun uninstallFromDualMessenger(packageName: String): Boolean = withContext(Dispatchers.IO) {
         val output = ShizukuHelper.executeShellCommand("pm uninstall --user 95 $packageName")
-        output.contains("Success", ignoreCase = true)
+        val success = output.contains("Success", ignoreCase = true)
+        if (success) {
+            removeFromHistory(packageName)
+        }
+        success
     }
 }

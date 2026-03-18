@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import coil.compose.rememberAsyncImagePainter
@@ -32,6 +33,8 @@ fun MainScreen(viewModel: MainViewModel) {
     var selectedTabIndex by remember { mutableStateOf(0) }
     val tabs = listOf("Main Apps", "Dual Messenger")
 
+    var showMenu by remember { mutableStateOf(false) }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -39,6 +42,21 @@ fun MainScreen(viewModel: MainViewModel) {
                 actions = {
                     IconButton(onClick = { viewModel.loadApps() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                    }
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(Icons.Default.MoreVert, contentDescription = "More")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Recover Cloned Apps") },
+                            onClick = {
+                                showMenu = false
+                                viewModel.recoverClonedApps()
+                            }
+                        )
                     }
                 }
             )
