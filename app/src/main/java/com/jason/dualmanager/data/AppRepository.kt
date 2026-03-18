@@ -42,6 +42,29 @@ class AppRepository(private val context: Context) {
         failedApps
     }
 
+    suspend fun getClonedHistoryApps(): List<AppInfo> = withContext(Dispatchers.IO) {
+        val history = getClonedHistory()
+        val pm = context.packageManager
+        history.mapNotNull { packageName ->
+            try {
+                val appInfo = pm.getApplicationInfo(packageName, 0)
+                AppInfo(
+                    packageName = appInfo.packageName,
+                    name = pm.getApplicationLabel(appInfo).toString(),
+                    icon = pm.getApplicationIcon(appInfo),
+                    isSystemApp = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                )
+            } catch (e: PackageManager.NameNotFoundException) {
+                AppInfo(
+                    packageName = packageName,
+                    name = packageName,
+                    icon = null,
+                    isSystemApp = false
+                )
+            }
+        }.sortedBy { it.name.lowercase() }
+    }
+
     suspend fun getMainApps(): List<AppInfo> = withContext(Dispatchers.IO) {
         val output = ShizukuHelper.executeShellCommand("pm list packages --user 0")
         if (output.startsWith("Error")) {

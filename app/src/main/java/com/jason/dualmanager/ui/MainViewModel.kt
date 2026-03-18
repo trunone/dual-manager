@@ -17,6 +17,7 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     private val _mainApps = MutableStateFlow<List<AppInfo>>(emptyList())
     private val _dualApps = MutableStateFlow<List<AppInfo>>(emptyList())
+    private val _historyApps = MutableStateFlow<List<AppInfo>>(emptyList())
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery
@@ -26,6 +27,10 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val dualApps: StateFlow<List<AppInfo>> = combine(_dualApps, _searchQuery) { apps, query ->
+        if (query.isBlank()) apps else apps.filter { it.name.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true) }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val historyApps: StateFlow<List<AppInfo>> = combine(_historyApps, _searchQuery) { apps, query ->
         if (query.isBlank()) apps else apps.filter { it.name.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -97,6 +102,7 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
             try {
                 _mainApps.value = repository.getMainApps()
                 _dualApps.value = repository.getDualMessengerApps()
+                _historyApps.value = repository.getClonedHistoryApps()
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to load apps: ${e.message}"
             } finally {

@@ -23,6 +23,7 @@ import com.jason.dualmanager.data.AppInfo
 fun MainScreen(viewModel: MainViewModel) {
     val mainApps by viewModel.mainApps.collectAsState()
     val dualApps by viewModel.dualApps.collectAsState()
+    val historyApps by viewModel.historyApps.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     
@@ -31,7 +32,7 @@ fun MainScreen(viewModel: MainViewModel) {
     val isPermissionLoading by viewModel.isPermissionLoading.collectAsState()
 
     var selectedTabIndex by remember { mutableStateOf(0) }
-    val tabs = listOf("Main Apps", "Dual Messenger")
+    val tabs = listOf("Main Apps", "Dual Messenger", "History")
 
     var showMenu by remember { mutableStateOf(false) }
 
@@ -114,13 +115,20 @@ fun MainScreen(viewModel: MainViewModel) {
                     CircularProgressIndicator()
                 }
             } else {
-                val currentList = if (selectedTabIndex == 0) mainApps else dualApps
+                val currentList = when (selectedTabIndex) {
+                    0 -> mainApps
+                    1 -> dualApps
+                    else -> historyApps
+                }
                 
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(currentList) { app ->
+                        val isCurrentlyCloned = dualApps.any { it.packageName == app.packageName }
                         AppItem(
                             app = app,
                             isDualApp = selectedTabIndex == 1,
+                            isHistoryTab = selectedTabIndex == 2,
+                            isCurrentlyCloned = isCurrentlyCloned,
                             onClone = { viewModel.cloneToDualMessenger(app.packageName) },
                             onUninstall = { viewModel.uninstallFromDualMessenger(app.packageName) },
                             onClick = { if (selectedTabIndex == 1) viewModel.loadSpecialPermissions(app) }
@@ -206,6 +214,8 @@ fun SpecialPermissionDialog(
 fun AppItem(
     app: AppInfo,
     isDualApp: Boolean,
+    isHistoryTab: Boolean = false,
+    isCurrentlyCloned: Boolean = false,
     onClone: () -> Unit,
     onUninstall: () -> Unit,
     onClick: () -> Unit
@@ -235,6 +245,19 @@ fun AppItem(
         if (isDualApp) {
             Button(onClick = onUninstall) {
                 Text("Uninstall")
+            }
+        } else if (isHistoryTab) {
+            if (isCurrentlyCloned) {
+                Text(
+                    "Cloned",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+            } else {
+                OutlinedButton(onClick = onClone) {
+                    Text("Restore")
+                }
             }
         } else {
             OutlinedButton(onClick = onClone) {
