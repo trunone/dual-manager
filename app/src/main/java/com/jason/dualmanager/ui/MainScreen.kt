@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import coil.compose.rememberAsyncImagePainter
 import com.jason.dualmanager.data.AppInfo
+import com.jason.dualmanager.data.AppPermission
 import com.jason.dualmanager.shizuku.ShizukuHelper
 import com.jason.dualmanager.shizuku.ShizukuStatus
 
@@ -34,7 +35,7 @@ fun MainScreen(viewModel: MainViewModel) {
     val errorMessage by viewModel.errorMessage.collectAsState()
     
     val selectedApp by viewModel.selectedAppForPermissions.collectAsState()
-    val specialPermissions by viewModel.specialPermissions.collectAsState()
+    val appPermissions by viewModel.appPermissions.collectAsState()
     val isPermissionLoading by viewModel.isPermissionLoading.collectAsState()
 
     var selectedTabIndex by remember { mutableStateOf(0) }
@@ -167,7 +168,7 @@ fun MainScreen(viewModel: MainViewModel) {
                             isCurrentlyCloned = isCurrentlyCloned,
                             onClone = { viewModel.cloneToDualMessenger(app.packageName) },
                             onUninstall = { viewModel.uninstallFromDualMessenger(app.packageName) },
-                            onClick = { if (selectedTabIndex == 1) viewModel.loadSpecialPermissions(app) }
+                            onClick = { if (selectedTabIndex == 1) viewModel.loadAppPermissions(app) }
                         )
                         HorizontalDivider()
                     }
@@ -175,12 +176,12 @@ fun MainScreen(viewModel: MainViewModel) {
             }
 
             selectedApp?.let { app ->
-                SpecialPermissionDialog(
+                AppPermissionDialog(
                     app = app,
-                    permissions = specialPermissions,
+                    permissions = appPermissions,
                     isLoading = isPermissionLoading,
                     onDismiss = { viewModel.dismissPermissionDialog() },
-                    onToggle = { permission, allow -> viewModel.toggleSpecialPermission(app.packageName, permission, allow) }
+                    onToggle = { permission, allow -> viewModel.toggleAppPermission(app.packageName, permission, allow) }
                 )
             }
 
@@ -222,26 +223,26 @@ private fun openApp(context: Context, packageName: String) {
 }
 
 @Composable
-fun SpecialPermissionDialog(
+fun AppPermissionDialog(
     app: AppInfo,
-    permissions: List<com.jason.dualmanager.data.SpecialPermission>,
+    permissions: List<AppPermission>,
     isLoading: Boolean,
     onDismiss: () -> Unit,
-    onToggle: (com.jason.dualmanager.data.SpecialPermission, Boolean) -> Unit
+    onToggle: (AppPermission, Boolean) -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Special Permissions: ${app.name}") },
+        title = { Text("Permissions: ${app.name}") },
         text = {
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             } else if (permissions.isEmpty()) {
-                Text("No special permissions requested by this app.")
+                Text("No permissions requested by this app.")
             } else {
-                Column {
-                    permissions.forEach { permission ->
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                    items(permissions) { permission ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -249,13 +250,19 @@ fun SpecialPermissionDialog(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(permission.label, style = MaterialTheme.typography.bodyLarge)
-                                Text(permission.op, style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    text = if (permission.isAppOp) "Special Permission" else "Runtime Permission",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (permission.isAppOp) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline
+                                )
+                                Text(permission.name, style = MaterialTheme.typography.labelSmall)
                             }
                             Switch(
                                 checked = permission.isAllowed,
                                 onCheckedChange = { onToggle(permission, it) }
                             )
                         }
+                        HorizontalDivider()
                     }
                 }
             }

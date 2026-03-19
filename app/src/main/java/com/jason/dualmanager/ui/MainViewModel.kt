@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.jason.dualmanager.data.AppInfo
 import com.jason.dualmanager.data.AppRepository
-import com.jason.dualmanager.data.SpecialPermission
+import com.jason.dualmanager.data.AppPermission
 import com.jason.dualmanager.shizuku.ShizukuException
 import com.jason.dualmanager.shizuku.ShizukuStatus
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,8 +45,8 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     private val _selectedAppForPermissions = MutableStateFlow<AppInfo?>(null)
     val selectedAppForPermissions: StateFlow<AppInfo?> = _selectedAppForPermissions
 
-    private val _specialPermissions = MutableStateFlow<List<SpecialPermission>>(emptyList())
-    val specialPermissions: StateFlow<List<SpecialPermission>> = _specialPermissions
+    private val _appPermissions = MutableStateFlow<List<AppPermission>>(emptyList())
+    val appPermissions: StateFlow<List<AppPermission>> = _appPermissions
 
     private val _isPermissionLoading = MutableStateFlow(false)
     val isPermissionLoading: StateFlow<Boolean> = _isPermissionLoading
@@ -58,12 +58,12 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
         _shizukuStatus.value = status
     }
 
-    fun loadSpecialPermissions(app: AppInfo) {
+    fun loadAppPermissions(app: AppInfo) {
         _selectedAppForPermissions.value = app
         viewModelScope.launch {
             _isPermissionLoading.value = true
             try {
-                _specialPermissions.value = repository.getSpecialPermissions(app.packageName)
+                _appPermissions.value = repository.getAppPermissions(app.packageName)
             } catch (e: ShizukuException) {
                 _shizukuStatus.value = e.status
                 _errorMessage.value = e.message
@@ -76,13 +76,13 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
         }
     }
 
-    fun toggleSpecialPermission(packageName: String, permission: SpecialPermission, allow: Boolean) {
+    fun toggleAppPermission(packageName: String, permission: AppPermission, allow: Boolean) {
         viewModelScope.launch {
             try {
-                val success = repository.setSpecialPermission(packageName, permission.op, allow)
+                val success = repository.setAppPermission(packageName, permission, allow)
                 if (success) {
                     // Refresh permissions
-                    _selectedAppForPermissions.value?.let { loadSpecialPermissions(it) }
+                    _selectedAppForPermissions.value?.let { loadAppPermissions(it) }
                 } else {
                     _errorMessage.value = "Failed to update permission ${permission.label}"
                 }
@@ -97,7 +97,7 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun dismissPermissionDialog() {
         _selectedAppForPermissions.value = null
-        _specialPermissions.value = emptyList()
+        _appPermissions.value = emptyList()
     }
 
     fun onSearchQueryChange(newQuery: String) {

@@ -1,8 +1,9 @@
 package com.jason.dualmanager.data
 
-data class SpecialPermission(
-    val op: String,
+data class AppPermission(
+    val name: String,
     val label: String,
     val isAllowed: Boolean,
+    val isAppOp: Boolean,
     val manifestPermission: String
 )

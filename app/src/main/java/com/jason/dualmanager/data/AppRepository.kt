@@ -103,7 +103,7 @@ class AppRepository(private val context: Context) {
 
         val dualPackageNames = output.lines()
             .filter { it.startsWith("package:") }
-            .map { it.removePrefix("package:").trim() } // Removing trim() trailing spaces if any
+            .map { it.removePrefix("package:").trim() }
 
         val pm = context.packageManager
         dualPackageNames.mapNotNull { packageName ->
@@ -126,7 +126,27 @@ class AppRepository(private val context: Context) {
         }.sortedBy { it.name.lowercase() }
     }
 
-    suspend fun getSpecialPermissions(packageName: String): List<SpecialPermission> = withContext(Dispatchers.IO) {
+    private fun extractSection(dump: String, startTag: String): String {
+        val lines = dump.lines()
+        val startIndex = lines.indexOfFirst { it.trim().startsWith(startTag) }
+        if (startIndex == -1) return ""
+
+        val baseIndent = lines[startIndex].takeWhile { it.isWhitespace() }.length
+        val sectionContent = mutableListOf<String>()
+        sectionContent.add(lines[startIndex])
+
+        for (i in startIndex + 1 until lines.size) {
+            val line = lines[i]
+            if (line.isBlank()) continue
+            val currentIndent = line.takeWhile { it.isWhitespace() }.length
+            if (currentIndent <= baseIndent) break
+            sectionContent.add(line)
+        }
+
+        return sectionContent.joinToString("\n")
+    }
+
+    suspend fun getAppPermissions(packageName: String): List<AppPermission> = withContext(Dispatchers.IO) {
         val specialOps = listOf(
             Triple("MANAGE_EXTERNAL_STORAGE", "All Files Access", "android.permission.MANAGE_EXTERNAL_STORAGE"),
             Triple("SYSTEM_ALERT_WINDOW", "Display Over Other Apps", "android.permission.SYSTEM_ALERT_WINDOW"),
@@ -135,24 +155,54 @@ class AppRepository(private val context: Context) {
             Triple("GET_USAGE_STATS", "Usage Access", "android.permission.PACKAGE_USAGE_STATS")
         )
 
-        // Check which permissions are requested in manifest
         val dump = ShizukuHelper.executeShellCommand(context, "pm dump $packageName")
         
-        specialOps.mapNotNull { (op, label, perm) ->
+        val permissions = mutableListOf<AppPermission>()
+
+        // Runtime Permissions
+        val user95Section = extractSection(dump, "User 95:")
+        val runtimePermissionsSection = extractSection(user95Section, "runtime permissions:")
+
+        val installPermissionsSection = extractSection(dump, "install permissions:")
+
+        val requestedPermissions = dump.lines()
+            .dropWhile { !it.contains("requested permissions:") }
+            .drop(1)
+            .takeWhile { it.startsWith("  ") }
+            .map { it.trim() }
+
+        requestedPermissions.forEach { perm ->
+            if (specialOps.any { it.third == perm }) return@forEach
+
+            val isGranted = runtimePermissionsSection.lines().any { it.contains(perm) && it.contains("granted=true") } ||
+                    installPermissionsSection.lines().any { it.contains(perm) && it.contains("granted=true") }
+
+            val label = perm.substringAfterLast(".")
+            permissions.add(AppPermission(perm, label, isGranted, false, perm))
+        }
+
+        // Special AppOps
+        specialOps.forEach { (op, label, perm) ->
             if (dump.contains(perm)) {
                 val status = ShizukuHelper.executeShellCommand(context, "appops get --user 95 $packageName $op")
                 val isAllowed = status.contains("allow", ignoreCase = true)
-                SpecialPermission(op, label, isAllowed, perm)
-            } else {
-                null
+                permissions.add(AppPermission(op, label, isAllowed, true, perm))
             }
         }
+
+        permissions.sortedBy { it.label.lowercase() }
     }
 
-    suspend fun setSpecialPermission(packageName: String, op: String, allow: Boolean): Boolean = withContext(Dispatchers.IO) {
-        val mode = if (allow) "allow" else "ignore"
-        val output = ShizukuHelper.executeShellCommand(context, "appops set --user 95 $packageName $op $mode")
-        !output.startsWith("Error")
+    suspend fun setAppPermission(packageName: String, permission: AppPermission, allow: Boolean): Boolean = withContext(Dispatchers.IO) {
+        if (permission.isAppOp) {
+            val mode = if (allow) "allow" else "ignore"
+            val output = ShizukuHelper.executeShellCommand(context, "appops set --user 95 $packageName ${permission.name} $mode")
+            !output.startsWith("Error")
+        } else {
+            val action = if (allow) "grant" else "revoke"
+            val output = ShizukuHelper.executeShellCommand(context, "pm $action --user 95 $packageName ${permission.name}")
+            !output.startsWith("Error")
+        }
     }
 
     suspend fun installToDualMessenger(packageName: String): Boolean = withContext(Dispatchers.IO) {
