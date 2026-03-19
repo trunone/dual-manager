@@ -167,27 +167,38 @@ class AppRepository(private val context: Context) {
         // Global install permissions
         val installPermissionsSection = extractSection(dump, "install permissions:")
 
-        // Find all "requested permissions:" blocks
-        val lines = dump.lines()
         val requestedPerms = mutableSetOf<String>()
-        var i = 0
-        while (i < lines.size) {
-            if (lines[i].contains("requested permissions:")) {
-                i++
-                while (i < lines.size && lines[i].startsWith("  ")) {
-                    val perm = lines[i].trim().split(":").first().trim()
-                    // Basic heuristic: a valid permission has at least one dot and no spaces
-                    if (perm.contains(".") && !perm.contains(" ")) {
-                        requestedPerms.add(perm)
+
+        // 1. Try to get permissions via PackageManager first
+        try {
+            val packageInfo = pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+            packageInfo.requestedPermissions?.forEach {
+                requestedPerms.add(it)
+            }
+        } catch (e: Exception) {
+            // Fallback to parsing pm dump
+            val lines = dump.lines()
+            var i = 0
+            while (i < lines.size) {
+                if (lines[i].contains("requested permissions:")) {
+                    i++
+                    while (i < lines.size && lines[i].startsWith("  ")) {
+                        val perm = lines[i].trim().split(":").first().trim()
+                        if (perm.isNotBlank()) {
+                            requestedPerms.add(perm)
+                        }
+                        i++
                     }
+                } else {
                     i++
                 }
-            } else {
-                i++
             }
         }
 
-        requestedPerms.forEach { perm ->
+        // Strict filtering for valid permission names
+        val permissionRegex = Regex("^[a-zA-Z0-9._]+$")
+
+        requestedPerms.filter { it.matches(permissionRegex) && !it.contains("/") && !it.contains("=") }.forEach { perm ->
             if (specialOps.any { it.third == perm }) return@forEach
 
             val isGranted = runtimePermissionsSection.lines().any { line ->

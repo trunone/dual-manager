@@ -251,7 +251,7 @@ fun AppPermissionDialog(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(permission.label, style = MaterialTheme.typography.bodyLarge)
                                 Text(
-                                    text = if (permission.isAppOp) "Special Permission" else "Runtime Permission",
+                                    text = if (permission.isAppOp) "Special Permission" else "Standard Permission",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = if (permission.isAppOp) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.outline
                                 )
