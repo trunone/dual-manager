@@ -158,18 +158,20 @@ class AppRepository(private val context: Context) {
         val dump = ShizukuHelper.executeShellCommand(context, "pm dump $packageName")
         
         val permissions = mutableListOf<AppPermission>()
+        val pm = context.packageManager
 
-        // Runtime Permissions
+        // Runtime Permissions for User 95
         val user95Section = extractSection(dump, "User 95:")
         val runtimePermissionsSection = extractSection(user95Section, "runtime permissions:")
 
+        // Global install permissions
         val installPermissionsSection = extractSection(dump, "install permissions:")
 
         val requestedPermissions = dump.lines()
             .dropWhile { !it.contains("requested permissions:") }
             .drop(1)
             .takeWhile { it.startsWith("  ") }
-            .map { it.trim() }
+            .map { it.trim().split(":").first() } // Take permission name and remove flags if any
 
         requestedPermissions.forEach { perm ->
             if (specialOps.any { it.third == perm }) return@forEach
@@ -177,7 +179,13 @@ class AppRepository(private val context: Context) {
             val isGranted = runtimePermissionsSection.lines().any { it.contains(perm) && it.contains("granted=true") } ||
                     installPermissionsSection.lines().any { it.contains(perm) && it.contains("granted=true") }
 
-            val label = perm.substringAfterLast(".")
+            val label = try {
+                val info = pm.getPermissionInfo(perm, 0)
+                info.loadLabel(pm).toString()
+            } catch (e: Exception) {
+                perm.substringAfterLast(".")
+            }
+
             permissions.add(AppPermission(perm, label, isGranted, false, perm))
         }
 
@@ -197,11 +205,11 @@ class AppRepository(private val context: Context) {
         if (permission.isAppOp) {
             val mode = if (allow) "allow" else "ignore"
             val output = ShizukuHelper.executeShellCommand(context, "appops set --user 95 $packageName ${permission.name} $mode")
-            !output.startsWith("Error")
+            !output.startsWith("Error") && !output.contains("Error", ignoreCase = true)
         } else {
             val action = if (allow) "grant" else "revoke"
             val output = ShizukuHelper.executeShellCommand(context, "pm $action --user 95 $packageName ${permission.name}")
-            !output.startsWith("Error")
+            !output.startsWith("Error") && !output.contains("Error", ignoreCase = true)
         }
     }
 
