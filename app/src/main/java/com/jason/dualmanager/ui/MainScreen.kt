@@ -231,7 +231,7 @@ fun SpecialPermissionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Special Permissions: ${app.name}") },
+        title = { Text("App Permissions: ${app.name}") },
         text = {
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {

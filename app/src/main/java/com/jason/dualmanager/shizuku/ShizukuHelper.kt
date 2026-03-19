@@ -73,16 +73,30 @@ object ShizukuHelper {
                 String::class.java
             )
             method.isAccessible = true
-            val session = method.invoke(null, arrayOf("sh", "-c", command), null, null) as java.lang.Process
+            val session = method.invoke(null, arrayOf("sh", "-c", "$command 2>&1"), null, null) as java.lang.Process
 
             val reader = BufferedReader(InputStreamReader(session.inputStream))
+            
             val output = StringBuilder()
             var line: String?
             while (reader.readLine().also { line = it } != null) {
                 output.append(line).append("\n")
             }
-            session.waitFor()
-            output.toString().trim()
+            
+            val exitCode = session.waitFor()
+            val finalOut = output.toString().trim()
+            
+            if (exitCode != 0) {
+                return "Error: Exit code $exitCode - $finalOut"
+            }
+            
+            if (finalOut.startsWith("Exception", ignoreCase = true) || 
+                finalOut.startsWith("java.lang.", ignoreCase = true) || 
+                finalOut.startsWith("Security exception", ignoreCase = true)) {
+                return "Error: $finalOut"
+            }
+            
+            return finalOut
         } catch (e: Exception) {
             e.printStackTrace()
             throw ShizukuException(ShizukuStatus.Ready, "Error executing command: ${e.message}")

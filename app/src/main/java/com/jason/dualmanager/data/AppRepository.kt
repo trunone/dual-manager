@@ -172,4 +172,52 @@ class AppRepository(private val context: Context) {
         }
         success
     }
+
+    suspend fun getStandardPermissions(packageName: String): List<SpecialPermission> = withContext(Dispatchers.IO) {
+        val pm = context.packageManager
+        val requestedPermissions = try {
+            pm.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS).requestedPermissions ?: emptyArray()
+        } catch (e: Exception) {
+            emptyArray()
+        }
+
+        val dangerousPermissions = requestedPermissions.filter { perm ->
+            try {
+                val permInfo = pm.getPermissionInfo(perm, 0)
+                (permInfo.protectionLevel and android.content.pm.PermissionInfo.PROTECTION_MASK_BASE) == android.content.pm.PermissionInfo.PROTECTION_DANGEROUS
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        if (dangerousPermissions.isEmpty()) return@withContext emptyList()
+
+        val dump = ShizukuHelper.executeShellCommand(context, "dumpsys package $packageName")
+        val user95Index = dump.indexOf("User 95:")
+        val user95Dump = if (user95Index != -1) dump.substring(user95Index) else ""
+
+        dangerousPermissions.map { perm ->
+            val grantedIndex = user95Dump.indexOf("$perm: granted=true")
+            val isAllowed = grantedIndex != -1
+
+            val label = perm.substringAfterLast(".")
+                .replace("_", " ")
+                .lowercase()
+                .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+
+            SpecialPermission(
+                op = perm,
+                label = label,
+                isAllowed = isAllowed,
+                manifestPermission = perm,
+                isStandard = true
+            )
+        }
+    }
+
+    suspend fun setStandardPermission(packageName: String, permission: String, allow: Boolean): Boolean = withContext(Dispatchers.IO) {
+        val action = if (allow) "grant" else "revoke"
+        val output = ShizukuHelper.executeShellCommand(context, "pm $action --user 95 $packageName $permission")
+        !output.startsWith("Error")
+    }
 }

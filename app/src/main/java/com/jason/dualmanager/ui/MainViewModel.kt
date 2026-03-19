@@ -63,7 +63,9 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
         viewModelScope.launch {
             _isPermissionLoading.value = true
             try {
-                _specialPermissions.value = repository.getSpecialPermissions(app.packageName)
+                val special = repository.getSpecialPermissions(app.packageName)
+                val standard = repository.getStandardPermissions(app.packageName)
+                _specialPermissions.value = special + standard
             } catch (e: ShizukuException) {
                 _shizukuStatus.value = e.status
                 _errorMessage.value = e.message
@@ -79,7 +81,11 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
     fun toggleSpecialPermission(packageName: String, permission: SpecialPermission, allow: Boolean) {
         viewModelScope.launch {
             try {
-                val success = repository.setSpecialPermission(packageName, permission.op, allow)
+                val success = if (permission.isStandard) {
+                    repository.setStandardPermission(packageName, permission.op, allow)
+                } else {
+                    repository.setSpecialPermission(packageName, permission.op, allow)
+                }
                 if (success) {
                     // Refresh permissions
                     _selectedAppForPermissions.value?.let { loadSpecialPermissions(it) }
