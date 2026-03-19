@@ -157,7 +157,7 @@ class AppRepository(private val context: Context) {
 
         val dump = ShizukuHelper.executeShellCommand(context, "pm dump $packageName")
         
-        val permissions = mutableListOf<AppPermission>()
+        val permissionsList = mutableListOf<AppPermission>()
         val pm = context.packageManager
 
         // Runtime Permissions for User 95
@@ -167,17 +167,36 @@ class AppRepository(private val context: Context) {
         // Global install permissions
         val installPermissionsSection = extractSection(dump, "install permissions:")
 
-        val requestedPermissions = dump.lines()
-            .dropWhile { !it.contains("requested permissions:") }
-            .drop(1)
-            .takeWhile { it.startsWith("  ") }
-            .map { it.trim().split(":").first() } // Take permission name and remove flags if any
+        // Find all "requested permissions:" blocks
+        val lines = dump.lines()
+        val requestedPerms = mutableSetOf<String>()
+        var i = 0
+        while (i < lines.size) {
+            if (lines[i].contains("requested permissions:")) {
+                i++
+                while (i < lines.size && lines[i].startsWith("  ")) {
+                    val perm = lines[i].trim().split(":").first().trim()
+                    // Basic heuristic: a valid permission has at least one dot and no spaces
+                    if (perm.contains(".") && !perm.contains(" ")) {
+                        requestedPerms.add(perm)
+                    }
+                    i++
+                }
+            } else {
+                i++
+            }
+        }
 
-        requestedPermissions.forEach { perm ->
+        requestedPerms.forEach { perm ->
             if (specialOps.any { it.third == perm }) return@forEach
 
-            val isGranted = runtimePermissionsSection.lines().any { it.contains(perm) && it.contains("granted=true") } ||
-                    installPermissionsSection.lines().any { it.contains(perm) && it.contains("granted=true") }
+            val isGranted = runtimePermissionsSection.lines().any { line ->
+                val trimmed = line.trim()
+                (trimmed.startsWith("$perm:") || trimmed.startsWith("perm=$perm")) && trimmed.contains("granted=true")
+            } || installPermissionsSection.lines().any { line ->
+                val trimmed = line.trim()
+                (trimmed.startsWith("$perm:") || trimmed.startsWith("perm=$perm")) && trimmed.contains("granted=true")
+            }
 
             val label = try {
                 val info = pm.getPermissionInfo(perm, 0)
@@ -186,7 +205,7 @@ class AppRepository(private val context: Context) {
                 perm.substringAfterLast(".")
             }
 
-            permissions.add(AppPermission(perm, label, isGranted, false, perm))
+            permissionsList.add(AppPermission(perm, label, isGranted, false, perm))
         }
 
         // Special AppOps
@@ -194,11 +213,11 @@ class AppRepository(private val context: Context) {
             if (dump.contains(perm)) {
                 val status = ShizukuHelper.executeShellCommand(context, "appops get --user 95 $packageName $op")
                 val isAllowed = status.contains("allow", ignoreCase = true)
-                permissions.add(AppPermission(op, label, isAllowed, true, perm))
+                permissionsList.add(AppPermission(op, label, isAllowed, true, perm))
             }
         }
 
-        permissions.sortedBy { it.label.lowercase() }
+        permissionsList.sortedBy { it.label.lowercase() }.distinctBy { it.name }
     }
 
     suspend fun setAppPermission(packageName: String, permission: AppPermission, allow: Boolean): Boolean = withContext(Dispatchers.IO) {
