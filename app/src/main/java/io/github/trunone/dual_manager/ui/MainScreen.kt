@@ -240,8 +240,8 @@ fun SpecialPermissionDialog(
             } else if (permissions.isEmpty()) {
                 Text("No special permissions requested by this app.")
             } else {
-                Column {
-                    permissions.forEach { permission ->
+                LazyColumn {
+                    items(permissions) { permission ->
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
