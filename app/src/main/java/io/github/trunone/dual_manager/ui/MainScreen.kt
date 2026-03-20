@@ -1,4 +1,4 @@
-package com.jason.dualmanager.ui
+package io.github.trunone.dual_manager.ui
 
 import android.content.Context
 import android.content.Intent
@@ -20,9 +20,9 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import coil.compose.rememberAsyncImagePainter
-import com.jason.dualmanager.data.AppInfo
-import com.jason.dualmanager.shizuku.ShizukuHelper
-import com.jason.dualmanager.shizuku.ShizukuStatus
+import io.github.trunone.dual_manager.data.AppInfo
+import io.github.trunone.dual_manager.shizuku.ShizukuHelper
+import io.github.trunone.dual_manager.shizuku.ShizukuStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -224,10 +224,10 @@ private fun openApp(context: Context, packageName: String) {
 @Composable
 fun SpecialPermissionDialog(
     app: AppInfo,
-    permissions: List<com.jason.dualmanager.data.SpecialPermission>,
+    permissions: List<io.github.trunone.dual_manager.data.SpecialPermission>,
     isLoading: Boolean,
     onDismiss: () -> Unit,
-    onToggle: (com.jason.dualmanager.data.SpecialPermission, Boolean) -> Unit
+    onToggle: (io.github.trunone.dual_manager.data.SpecialPermission, Boolean) -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,

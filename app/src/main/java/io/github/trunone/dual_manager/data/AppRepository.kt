@@ -1,9 +1,9 @@
-package com.jason.dualmanager.data
+package io.github.trunone.dual_manager.data
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import com.jason.dualmanager.shizuku.ShizukuHelper
+import io.github.trunone.dual_manager.shizuku.ShizukuHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
