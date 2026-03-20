@@ -1,13 +1,13 @@
-package com.jason.dualmanager.ui
+package io.github.trunone.dual_manager.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.jason.dualmanager.data.AppInfo
-import com.jason.dualmanager.data.AppRepository
-import com.jason.dualmanager.data.SpecialPermission
-import com.jason.dualmanager.shizuku.ShizukuException
-import com.jason.dualmanager.shizuku.ShizukuStatus
+import io.github.trunone.dual_manager.data.AppInfo
+import io.github.trunone.dual_manager.data.AppRepository
+import io.github.trunone.dual_manager.data.SpecialPermission
+import io.github.trunone.dual_manager.shizuku.ShizukuException
+import io.github.trunone.dual_manager.shizuku.ShizukuStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

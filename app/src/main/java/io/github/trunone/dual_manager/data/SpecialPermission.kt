@@ -1,4 +1,4 @@
-package com.jason.dualmanager.data
+package io.github.trunone.dual_manager.data
 
 data class SpecialPermission(
     val op: String,

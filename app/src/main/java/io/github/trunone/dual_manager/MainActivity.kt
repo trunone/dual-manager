@@ -1,4 +1,4 @@
-package com.jason.dualmanager
+package io.github.trunone.dual_manager
 
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
-import com.jason.dualmanager.data.AppRepository
-import com.jason.dualmanager.shizuku.ShizukuHelper
-import com.jason.dualmanager.shizuku.ShizukuStatus
-import com.jason.dualmanager.ui.MainScreen
-import com.jason.dualmanager.ui.MainViewModel
+import io.github.trunone.dual_manager.data.AppRepository
+import io.github.trunone.dual_manager.shizuku.ShizukuHelper
+import io.github.trunone.dual_manager.shizuku.ShizukuStatus
+import io.github.trunone.dual_manager.ui.MainScreen
+import io.github.trunone.dual_manager.ui.MainViewModel
 import rikka.shizuku.Shizuku
 
 class MainActivity : ComponentActivity() {

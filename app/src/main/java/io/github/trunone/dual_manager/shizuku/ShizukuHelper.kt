@@ -1,4 +1,4 @@
-package com.jason.dualmanager.shizuku
+package io.github.trunone.dual_manager.shizuku
 
 import android.content.Context
 import android.content.pm.PackageManager

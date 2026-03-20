@@ -1,4 +1,4 @@
-package com.jason.dualmanager.data
+package io.github.trunone.dual_manager.data
 
 import android.graphics.drawable.Drawable
 
