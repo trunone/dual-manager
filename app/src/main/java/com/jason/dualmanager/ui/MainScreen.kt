@@ -16,9 +16,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import coil.compose.rememberAsyncImagePainter
 import com.jason.dualmanager.data.AppInfo
 import com.jason.dualmanager.shizuku.ShizukuHelper
@@ -29,7 +29,6 @@ import com.jason.dualmanager.shizuku.ShizukuStatus
 fun MainScreen(viewModel: MainViewModel) {
     val mainApps by viewModel.mainApps.collectAsState()
     val dualApps by viewModel.dualApps.collectAsState()
-    val historyApps by viewModel.historyApps.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
     
@@ -38,10 +37,18 @@ fun MainScreen(viewModel: MainViewModel) {
     val isPermissionLoading by viewModel.isPermissionLoading.collectAsState()
 
     var selectedTabIndex by remember { mutableStateOf(0) }
-    val tabs = listOf("Main Apps", "Dual Messenger", "History")
+    val tabs = listOf("Main Apps", "Dual Messenger")
 
-    var showMenu by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    if (showSettings) {
+        SettingsScreen(
+            viewModel = viewModel,
+            onBack = { showSettings = false }
+        )
+        return
+    }
 
     Scaffold(
         topBar = {
@@ -51,20 +58,8 @@ fun MainScreen(viewModel: MainViewModel) {
                     IconButton(onClick = { viewModel.loadApps() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
-                    IconButton(onClick = { showMenu = true }) {
-                        Icon(Icons.Default.MoreVert, contentDescription = "More")
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Recover Cloned Apps") },
-                            onClick = {
-                                showMenu = false
-                                viewModel.recoverClonedApps()
-                            }
-                        )
+                    IconButton(onClick = { showSettings = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
             )
@@ -153,18 +148,16 @@ fun MainScreen(viewModel: MainViewModel) {
             } else {
                 val currentList = when (selectedTabIndex) {
                     0 -> mainApps
-                    1 -> dualApps
-                    else -> historyApps
+                    else -> dualApps
                 }
                 
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(currentList) { app ->
-                        val isCurrentlyCloned = dualApps.any { it.packageName == app.packageName }
                         AppItem(
                             app = app,
                             isDualApp = selectedTabIndex == 1,
-                            isHistoryTab = selectedTabIndex == 2,
-                            isCurrentlyCloned = isCurrentlyCloned,
+                            isHistoryTab = false,
+                            isCurrentlyCloned = false,
                             onClone = { viewModel.cloneToDualMessenger(app.packageName) },
                             onUninstall = { viewModel.uninstallFromDualMessenger(app.packageName) },
                             onClick = { if (selectedTabIndex == 1) viewModel.loadSpecialPermissions(app) }
