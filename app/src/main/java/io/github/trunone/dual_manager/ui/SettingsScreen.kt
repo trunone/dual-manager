@@ -1,4 +1,4 @@
-package com.jason.dualmanager.ui
+package io.github.trunone.dual_manager.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*

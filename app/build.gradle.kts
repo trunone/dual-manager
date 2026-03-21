@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.jason.dualmanager"
+    namespace = "io.github.trunone.dual_manager"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.jason.dualmanager"
+        applicationId = "io.github.trunone.dual_manager"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
