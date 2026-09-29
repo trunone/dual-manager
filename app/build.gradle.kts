@@ -51,4 +51,6 @@ dependencies {
     implementation("dev.rikka.shizuku:provider:$shizuku_version")
 
     implementation("io.coil-kt:coil-compose:2.5.0")
+
+    testImplementation("junit:junit:4.13.2")
 }

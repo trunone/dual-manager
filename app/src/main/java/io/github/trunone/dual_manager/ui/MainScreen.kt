@@ -242,7 +242,11 @@ fun SpecialPermissionDialog(
                         ) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(permission.label, style = MaterialTheme.typography.bodyLarge)
-                                Text(permission.op, style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    text = if (permission.isStandard) "Standard Permission • ${permission.op}" else "Special Permission • ${permission.op}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                             Switch(
                                 checked = permission.isAllowed,
