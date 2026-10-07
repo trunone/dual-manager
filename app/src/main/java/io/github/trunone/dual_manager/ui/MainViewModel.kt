@@ -80,6 +80,10 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
 
     fun toggleSpecialPermission(packageName: String, permission: SpecialPermission, allow: Boolean) {
         viewModelScope.launch {
+            _specialPermissions.value = _specialPermissions.value.map {
+                if (it.op == permission.op) it.copy(isAllowed = allow) else it
+            }
+
             try {
                 val success = if (permission.isStandard) {
                     repository.setStandardPermission(packageName, permission.op, allow)
@@ -87,17 +91,29 @@ class MainViewModel(private val repository: AppRepository) : ViewModel() {
                     repository.setSpecialPermission(packageName, permission.op, allow)
                 }
                 if (success) {
-                    // Refresh permissions
-                    _selectedAppForPermissions.value?.let { loadSpecialPermissions(it) }
+                    _selectedAppForPermissions.value?.let { refreshPermissionsSilently(it) }
                 } else {
                     _errorMessage.value = "Failed to update permission ${permission.label}"
+                    _selectedAppForPermissions.value?.let { refreshPermissionsSilently(it) }
                 }
             } catch (e: ShizukuException) {
                 _shizukuStatus.value = e.status
                 _errorMessage.value = e.message
+                _selectedAppForPermissions.value?.let { refreshPermissionsSilently(it) }
             } catch (e: Exception) {
                 _errorMessage.value = "Error: ${e.message}"
+                _selectedAppForPermissions.value?.let { refreshPermissionsSilently(it) }
             }
+        }
+    }
+
+    private suspend fun refreshPermissionsSilently(app: AppInfo) {
+        try {
+            val special = repository.getSpecialPermissions(app.packageName)
+            val standard = repository.getStandardPermissions(app.packageName)
+            _specialPermissions.value = special + standard
+        } catch (e: Exception) {
+            // Silently ignore or retain current state
         }
     }
 
